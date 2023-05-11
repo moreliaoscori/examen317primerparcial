@@ -1,0 +1,23 @@
+import multiprocessing
+
+def fibonacci(n, cache={}):
+    if n <= 0:
+        return 0
+    elif n == 1:
+        return 1
+    elif n in cache:
+        return cache[n]
+    else:
+        res = fibonacci(n-1) + fibonacci(n-2)
+        cache[n] = res
+        return res
+
+if __name__ == '__main__':
+    pool = multiprocessing.Pool()
+
+    # Generar los primeros 1000 elementos de la serie de Fibonacci en paralelo
+    resultados = pool.map(fibonacci, range(1000))
+
+    # Imprimir los resultados
+    for i, res in enumerate(resultados):
+        print(f"Fibo({i}): {res}")
