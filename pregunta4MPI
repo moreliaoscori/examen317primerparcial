@@ -1,0 +1,64 @@
+#include <stdio.h>
+#include <stdlib.h>
+#include "mpi.h"
+
+#define MAX_ELEMENTS 1000
+
+void generate_fibonacci(int start, int end, unsigned long long* fib_nums) {
+    fib_nums[start] = 0;
+    fib_nums[start + 1] = 1;
+
+    for (int i = start + 2; i <= end; i++) {
+        fib_nums[i] = fib_nums[i - 1] + fib_nums[i - 2];
+    }
+}
+
+int main(int argc, char** argv) {
+    int rank, size;
+
+    MPI_Init(&argc, &argv);
+    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+    MPI_Comm_size(MPI_COMM_WORLD, &size);
+
+    int elements_per_process = MAX_ELEMENTS / size;
+    int start = rank * elements_per_process;
+    int end = start + elements_per_process - 1;
+
+    if (rank == size - 1) {
+        end = MAX_ELEMENTS - 1;
+    }
+
+    unsigned long long* fib_nums = (unsigned long long*)malloc((end - start + 1) * sizeof(unsigned long long));
+    if (fib_nums == NULL) {
+        printf("Error en la asignación de memoria\n");
+        MPI_Abort(MPI_COMM_WORLD, 1);
+    }
+
+    generate_fibonacci(start, end, fib_nums);
+
+    // Recopilar los resultados en el proceso 0
+    unsigned long long* all_fib_nums = NULL;
+    if (rank == 0) {
+        all_fib_nums = (unsigned long long*)malloc(MAX_ELEMENTS * sizeof(unsigned long long));
+        if (all_fib_nums == NULL) {
+            printf("Error en la asignación de memoria\n");
+            MPI_Abort(MPI_COMM_WORLD, 1);
+        }
+    }
+
+    MPI_Gather(fib_nums, end - start + 1, MPI_UNSIGNED_LONG_LONG, all_fib_nums, end - start + 1, MPI_UNSIGNED_LONG_LONG, 0, MPI_COMM_WORLD);
+
+    if (rank == 0) {
+        // Imprimir la serie de Fibonacci generada con saltos de línea
+        for (int i = 0; i < MAX_ELEMENTS; i++) {
+            printf("%llu\n", all_fib_nums[i]);
+        }
+
+        free(all_fib_nums);
+    }
+
+    free(fib_nums);
+
+    MPI_Finalize();
+    return 0;
+}
