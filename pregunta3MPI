@@ -1,0 +1,86 @@
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include "mpi.h"
+
+#define MAX_palabra_SIZE 100
+
+int check_palindrome(char *palabra, int inicio, int fin)
+{
+    int i, palindromo = 1;
+    for (i = inicio; i <= fin; i++)
+    {
+        if (palabra[i] != palabra[fin - i + inicio])
+        {
+            palindromo = 0;
+            break;
+        }
+    }
+    return palindromo;
+}
+
+int main(int argc, char **argv)
+{
+    int my_rank, num_procs, chunk_size, inicio, fin, palindromo = 1, result;
+    char palabra[MAX_palabra_SIZE];
+    char *sub_palabra;
+    
+
+    MPI_Init(&argc, &argv);
+    MPI_Comm_rank(MPI_COMM_WORLD, &my_rank);
+    MPI_Comm_size(MPI_COMM_WORLD, &num_procs);
+    printf(num_procs)
+
+    if (my_rank == 0)
+    {
+        // Proceso principal
+        printf("Ingrese una palabra: ");
+        scanf("%s", palabra);
+
+        int palabra_len = strlen(palabra);
+        chunk_size = palabra_len / num_procs;
+
+        sub_palabra = (char *)malloc((chunk_size + 1) * sizeof(char));
+
+        // Distribuir las porciones de la palabra a los procesos
+        MPI_Scatter(palabra, chunk_size, MPI_CHAR, sub_palabra, chunk_size, MPI_CHAR, 0, MPI_COMM_WORLD);
+
+        sub_palabra[chunk_size] = '\0'; // Agregar terminador de cadena
+
+        // Verificar si la porción de la palabra es un palíndromo
+        result = check_palindrome(sub_palabra, 0, chunk_size - 1);
+    }
+    else
+    {
+        // Procesos hijos
+        sub_palabra = (char *)malloc((chunk_size + 1) * sizeof(char));
+
+        // Recibir la porción de la palabra
+        MPI_Scatter(NULL, 0, MPI_CHAR, sub_palabra, chunk_size, MPI_CHAR, 0, MPI_COMM_WORLD);
+
+        sub_palabra[chunk_size] = '\0'; // Agregar terminador de cadena
+
+        // Verificar si la porción de la palabra es un palíndromo
+        result = check_palindrome(sub_palabra, 0, chunk_size - 1);
+    }
+
+    // Combinar los resultados de los procesos
+    MPI_Reduce(&result, &palindromo, 1, MPI_INT, MPI_BAND, 0, MPI_COMM_WORLD);
+
+    if (my_rank == 0)
+    {
+        // Imprimir el resultado
+        if (palindromo)
+        {
+            printf("VERDAD\n");
+        }
+        else
+        {
+            printf("FALSO\n");
+        }
+    }
+
+    MPI_Finalize();
+    return 0;
+}
+
