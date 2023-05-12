@@ -1,0 +1,36 @@
+#include <stdio.h>
+#include <omp.h>
+
+#define NUM_ITERACIONES 1000000000
+
+int main() {
+    double pi = 0.0;
+    double paso = 1.0 / NUM_ITERACIONES;
+    int num_threads;
+
+    #pragma omp parallel
+    {
+        int i;
+        double x;
+        double local_suma = 0.0;
+
+        #pragma omp single
+        num_threads = omp_get_num_threads();
+
+        #pragma omp for
+        for (i = 0; i < NUM_ITERACIONES; i++) {
+            x = (i + 0.5) * paso;
+            local_suma += 4.0 / (1.0 + x * x);
+        }
+
+        #pragma omp atomic
+        pi += local_suma;
+    }
+
+    pi *= paso;
+
+    printf("Valor de Pi: %.15f\n", pi);
+    printf("Número de threads: %d\n", num_threads);
+
+    return 0;
+}
