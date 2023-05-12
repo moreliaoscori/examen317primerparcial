@@ -1,86 +1,49 @@
 #include <stdio.h>
-#include <stdlib.h>
 #include <string.h>
-#include "mpi.h"
+#include <mpi.h>
 
-#define MAX_palabra_SIZE 100
-
-int check_palindrome(char *palabra, int inicio, int fin)
-{
-    int i, palindromo = 1;
-    for (i = inicio; i <= fin; i++)
-    {
-        if (palabra[i] != palabra[fin - i + inicio])
-        {
-            palindromo = 0;
-            break;
-        }
+int isPalindrome(char *word, int start, int end) {
+    while (start < end) {
+        if (word[start] != word[end])
+            return 0;
+        start++;
+        end--;
     }
-    return palindromo;
+    return 1;
 }
 
-int main(int argc, char **argv)
-{
-    int my_rank, num_procs, chunk_size, inicio, fin, palindromo = 1, result;
-    char palabra[MAX_palabra_SIZE];
-    char *sub_palabra;
-    
+int main(int argc, char **argv) {
+    int rank, size, len;
+    char word[100];
 
     MPI_Init(&argc, &argv);
-    MPI_Comm_rank(MPI_COMM_WORLD, &my_rank);
-    MPI_Comm_size(MPI_COMM_WORLD, &num_procs);
-    printf(num_procs)
+    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+    MPI_Comm_size(MPI_COMM_WORLD, &size);
 
-    if (my_rank == 0)
-    {
-        // Proceso principal
+    if (rank == 0) {
         printf("Ingrese una palabra: ");
-        scanf("%s", palabra);
-
-        int palabra_len = strlen(palabra);
-        chunk_size = palabra_len / num_procs;
-
-        sub_palabra = (char *)malloc((chunk_size + 1) * sizeof(char));
-
-        // Distribuir las porciones de la palabra a los procesos
-        MPI_Scatter(palabra, chunk_size, MPI_CHAR, sub_palabra, chunk_size, MPI_CHAR, 0, MPI_COMM_WORLD);
-
-        sub_palabra[chunk_size] = '\0'; // Agregar terminador de cadena
-
-        // Verificar si la porción de la palabra es un palíndromo
-        result = check_palindrome(sub_palabra, 0, chunk_size - 1);
-    }
-    else
-    {
-        // Procesos hijos
-        sub_palabra = (char *)malloc((chunk_size + 1) * sizeof(char));
-
-        // Recibir la porción de la palabra
-        MPI_Scatter(NULL, 0, MPI_CHAR, sub_palabra, chunk_size, MPI_CHAR, 0, MPI_COMM_WORLD);
-
-        sub_palabra[chunk_size] = '\0'; // Agregar terminador de cadena
-
-        // Verificar si la porción de la palabra es un palíndromo
-        result = check_palindrome(sub_palabra, 0, chunk_size - 1);
+        scanf("%s", word);
+        len = strlen(word);
     }
 
-    // Combinar los resultados de los procesos
-    MPI_Reduce(&result, &palindromo, 1, MPI_INT, MPI_BAND, 0, MPI_COMM_WORLD);
+    MPI_Bcast(&len, 1, MPI_INT, 0, MPI_COMM_WORLD);
+    MPI_Bcast(word, len, MPI_CHAR, 0, MPI_COMM_WORLD);
 
-    if (my_rank == 0)
-    {
-        // Imprimir el resultado
-        if (palindromo)
-        {
-            printf("VERDAD\n");
-        }
+    int start = rank * len / size;
+    int end = (rank + 1) * len / size - 1;
+
+    int localPalindrome = isPalindrome(word, start, end);
+
+    int globalPalindrome;
+    MPI_Reduce(&localPalindrome, &globalPalindrome, 1, MPI_INT, MPI_LAND, 0, MPI_COMM_WORLD);
+
+    if (rank == 0) {
+        if (globalPalindrome)
+            printf("verdad\n", word);
         else
-        {
-            printf("FALSO\n");
-        }
+            printf("falso\n", word);
     }
 
     MPI_Finalize();
     return 0;
 }
-
